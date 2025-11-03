@@ -4,22 +4,23 @@ class Program
 {
     static Printer _printer = new Printer();
     static ProjectManager _projectManager = new ProjectManager();
+    static SiteGenerator _siteGenerator = new SiteGenerator();
     
     // Project settings
     const string Version = "0.0.1";
     
     // Visual Options
-    const ConsoleColor HeaderColor = ConsoleColor.Yellow;
-    const ConsoleColor ListKeyColor = ConsoleColor.Red;
-    const ConsoleColor ListValueColor = ConsoleColor.Magenta;
-    const ConsoleColor ListValueColorSecondary = ConsoleColor.Yellow;
-    const ConsoleColor UserInput =  ConsoleColor.Green;
-    const ConsoleColor StatusMessage =  ConsoleColor.White;
+    public const ConsoleColor HeaderColor = ConsoleColor.Yellow;
+    public const ConsoleColor ListKeyColor = ConsoleColor.Red;
+    public const ConsoleColor ListValueColor = ConsoleColor.Magenta;
+    public const ConsoleColor ListValueColorSecondary = ConsoleColor.Yellow;
+    public const ConsoleColor UserInput =  ConsoleColor.Green;
+    public const ConsoleColor StatusMessage =  ConsoleColor.White;
     
-    const int ListPadding = 3;
+    public const int ListPadding = 3;
     
-    // List options
-    private static readonly Dictionary<string, string> MenuOptions = new Dictionary<string, string>()
+    // Main Menu Options
+    private static readonly Dictionary<string, string> MainMenuOptions = new Dictionary<string, string>()
     {
         { "N", "New Project" },
         { "R", "Remove Project" },
@@ -27,13 +28,23 @@ class Program
         { "E", "Exit" }
     };
 
+    // Open Project Options
+    private static readonly Dictionary<string, string> ProjectOptions = new Dictionary<string, string>()
+    {
+        { "B", "Build Project" },
+        {"E", "Exit to Main Menu" }
+    };
+    
     private static string _statusMessage = "";
     
     static void Main()
     {
-        PrintMenu();
+        _printer.PrintBox("Console SSG - Version: " + Version);
+        ListProjects();
+        
+        PrintMenu(MainMenuOptions);
 
-        string userInput = GetValidInput("Choose option:",MenuOptions.Keys.ToArray());
+        string userInput = GetValidInput("Choose option:",MainMenuOptions.Keys.ToArray());
         
         while (userInput != "E")
         {
@@ -45,15 +56,19 @@ class Program
                 case "R":
                     RemoveProject();
                     break;
+                case "O":
+                    OpenProject();
+                    break;
             }
             
             Console.Clear();
             
-            PrintMenu();
+            _printer.PrintBox("Console SSG - Version: " + Version);
+            ListProjects();
+            PrintMenu(MainMenuOptions);
             
             _printer.WriteLineColor(_statusMessage, StatusMessage);
-            
-            userInput = GetValidInput("Choose option:",MenuOptions.Keys.ToArray());
+            userInput = GetValidInput("Choose option:",MainMenuOptions.Keys.ToArray());
         }
         
         _printer.WriteLineColor("Exiting", ConsoleColor.Red);
@@ -76,22 +91,20 @@ class Program
                
                 _printer.WriteColor($"{"[", ListPadding}{i+1}] ", ListKeyColor);
                 _printer.WriteColor($"{project.Key} ", ListValueColor);
-                _printer.WriteLineColor($"({project.Value})", ListValueColorSecondary);
+                var uri = new Uri(project.Value);
+                _printer.WriteLineColor($"({uri.AbsoluteUri})", ListValueColorSecondary);
             }
         }
 
         Console.WriteLine();
     }
     
-    static void PrintMenu()
+    static void PrintMenu(Dictionary<string, string> menuOptions)
     {
-        _printer.PrintBox("Console SSG - Version: " + Version);
-        ListProjects();
-        
         _printer.WriteLineColor("Options:", HeaderColor);
-        for (int i = 0; i < MenuOptions.Count; i++)
+        for (int i = 0; i < menuOptions.Count; i++)
         {
-            KeyValuePair<string, string> menuOption = MenuOptions.ElementAt(i);
+            KeyValuePair<string, string> menuOption = menuOptions.ElementAt(i);
             
             _printer.WriteColor($"{"[", ListPadding}{menuOption.Key}] ", ListKeyColor);
             _printer.WriteLineColor(menuOption.Value, ListValueColor);
@@ -169,10 +182,52 @@ class Program
         string[] validInputs = Enumerable.Range(1, projects.Count).Select(i => i.ToString()).ToArray();
         
         int projectNumber = int.Parse(GetValidInput("Select project to delete:", validInputs));
-
+        
         if (_projectManager.RemoveProject(projects.ElementAt(projectNumber - 1).Key))
         {
             _statusMessage = "Project removed";
+        }
+    }
+
+    static void OpenProject()
+    {
+        Dictionary<string, string> projects = _projectManager.GetProjects();
+
+        if (projects.Count == 0)
+        {
+            _statusMessage = "No project found";
+            return;
+        }
+        
+        // Project selector
+        string[] validInputs = Enumerable.Range(1, projects.Count).Select(i => i.ToString()).ToArray();
+        int projectNumber = int.Parse(GetValidInput("Select project to open:", validInputs));
+        KeyValuePair<string, string> selectedProject = _projectManager.GetProject(projectNumber - 1);
+        
+        
+        string userInput = "";
+        while (userInput != "E")
+        {
+            Console.Clear();
+            
+            _printer.PrintBox(selectedProject.Key);
+            _printer.WriteLineColor("Project Info:", HeaderColor);
+            _printer.WriteColor($"{new string(' ', ListPadding-1)}Directory: ", ListKeyColor);
+            var uri = new Uri(selectedProject.Value);
+            _printer.WriteLineColor($"({uri.AbsoluteUri})", ListValueColorSecondary);
+
+            Console.WriteLine();
+            
+            PrintMenu(ProjectOptions);
+            
+            userInput = GetValidInput("Choose option:", ProjectOptions.Keys.ToArray());
+
+            switch (userInput)
+            {
+                case "B":
+                    _siteGenerator.BuildProject(selectedProject);
+                    break;
+            }
         }
     }
 }

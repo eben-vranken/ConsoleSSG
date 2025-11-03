@@ -63,8 +63,11 @@ public class ProjectManager
     {
         try
         {
-            filePath ??= Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "MySiteGenerator", name);
-
+            filePath ??= Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "ConsoleSSG", name);
+            
+            // Create directory
+            Directory.CreateDirectory(filePath);
+            
             _projects.Add(name, filePath);
             SaveProjects();
             return true;
@@ -100,8 +103,32 @@ public class ProjectManager
         }
     }
 
+    /// <summary>
+    /// Returns all projects
+    /// </summary>
+    /// <returns></returns>
     public Dictionary<string, string> GetProjects()
     {
         return _projects;
+    }
+
+    /// <summary>
+    /// Get a project from a key
+    /// </summary>
+    /// <param name="key">The key of the project</param>
+    /// <returns>Kvp of the project</returns>
+    public KeyValuePair<string, string> GetProject(string key)
+    {
+        return _projects.First(kvp => kvp.Key == key);
+    }
+
+    /// <summary>
+    /// Get a project from an index
+    /// </summary>
+    /// <param name="index">The index of the project</param>
+    /// <returns>Kvp of the project</returns>
+    public KeyValuePair<string, string> GetProject(int index)
+    {
+        return _projects.ElementAt(index);
     }
 }
