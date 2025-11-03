@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace ConsoleSSG;
 
 using YamlDotNet.Serialization;
@@ -47,9 +49,11 @@ public class SiteGenerator
                 // Get page content
                 string pageContent = fileContent.Substring(metadataEnd + delimiter.Length, fileContent.Length - metadataEnd - delimiter.Length).Trim();
                 
-                BlogPost blogPost = new BlogPost(metadataObject["title"], DateTime.Parse(metadataObject["date"]), metadataObject["tags"], pageContent, metadataObject["template"]);
+                string[] tags = ((IEnumerable<object>)metadataObject["tags"]).Select(t => t.ToString()).ToArray();
                 
-                BuildPage(blogPost);
+                Page page = new Page(metadataObject["title"], DateTime.Parse(metadataObject["date"]), tags, pageContent, project.Key, metadataObject["template"], project.Value);
+                
+                BuildPage(page);
             }
         }
         else
@@ -60,8 +64,114 @@ public class SiteGenerator
         Thread.Sleep(5000);
     }
 
-    public void BuildPage(BlogPost page)
+    public void BuildPage(Page page)
     {
-        
+        Console.WriteLine("Searching for matching template");
+        // Find correct template
+        string folderPath = Path.Combine(AppContext.BaseDirectory, "Page Templates");
+        string templatePath = Path.Combine(folderPath, page.Template + ".html");
+        Uri path =  new Uri(templatePath);
+        Console.WriteLine(path.AbsoluteUri);
+        if (File.Exists(templatePath))
+        {
+            Console.WriteLine("Writing html file");
+            // Get page
+            string htmlPage = File.ReadAllText(templatePath);
+            
+            // Replace template elements with actual content
+            htmlPage = htmlPage.Replace("{{title}}", page.Title);
+            htmlPage = htmlPage.Replace("{{date}}", page.Date.ToShortDateString());
+            htmlPage = htmlPage.Replace("{{tags}}", string.Join(", ", page.Tags));
+            
+            // Parse content
+            string[] content = page.Content.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+
+            bool isOrderedList = false;
+            bool isUnOrderedList = false;
+            bool inParagraph = false;
+            
+            for (int i = 0; i < content.Length; i++)
+            {
+                string line = content[i];
+                
+                // Headings
+                if (line.StartsWith("### "))
+                {
+                    line = "<h3>" + line.Substring(4) + "</h3>";
+                } else if (line.StartsWith("## "))
+                {
+                    line = "<h2>" + line.Substring(3) + "</h2>";
+                } else if (line.StartsWith("# "))
+                {
+                    line = "<h1>" + line.Substring(2) + "</h1>";
+                }
+                
+                // Find bold
+                line = Regex.Replace(line, @"\*\*(.+?)\*\*", "<b>$1</b>");
+                
+                // Find italic
+                line = Regex.Replace(line, @"\*(.+?)\*", "<em>$1</em>");
+                
+                // Find lists
+                // Unordered
+                if (line.StartsWith("- "))
+                {
+                    line = Regex.Replace(line, @"^- (.+)", "<li>$1</li>");
+                    if (!isUnOrderedList)
+                    {
+                        // Start of a list
+                        line = "<ul>\n" + line;
+                        isUnOrderedList = true;
+                    }
+                    
+                } else if (isUnOrderedList)
+                {
+                    line = "</ul>\n" + line;
+                    isUnOrderedList = false;
+                }
+                
+                // Ordered
+                var match = Regex.Match(line, @"^(\d+)\.\s+(.+)$");
+                if (match.Success)
+                {
+                    string itemText = match.Groups[2].Value;
+                    line = $"<li>{itemText}</li>";
+
+                    if (!isOrderedList)
+                    {
+                        line = "<ol>\n" + line;
+                        isOrderedList = true;
+                    }
+                }
+                else
+                {
+                    if (isOrderedList)
+                    {
+                        line = "</ol>\n" + line;
+                        isOrderedList = false;
+                    }
+                }
+                
+                content[i] = line;
+            }
+            
+            string finalContent = string.Join("\n",  content);
+            
+            htmlPage = htmlPage.Replace("{{content}}", finalContent.Replace("\n\n", "<br>"));
+
+            string pagePath = page.Directory + "/" + page.Title + ".html";
+            
+            Console.WriteLine(pagePath);
+            
+            Console.WriteLine("Creating html file");
+            
+            File.WriteAllLines(pagePath, new[] { htmlPage });
+            Uri filePath =  new Uri(pagePath);
+            Console.WriteLine($"Created file at {filePath.AbsoluteUri}");
+        }
+        else
+        {
+            Console.WriteLine("Template not found");
+        }
     }
 }

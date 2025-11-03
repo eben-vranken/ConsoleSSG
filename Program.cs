@@ -31,8 +31,9 @@ class Program
     // Open Project Options
     private static readonly Dictionary<string, string> ProjectOptions = new Dictionary<string, string>()
     {
+        { "O", "Open Project (Browser)" },
         { "B", "Build Project" },
-        {"E", "Exit to Main Menu" }
+        { "E", "Exit to Main Menu" }
     };
     
     private static string _statusMessage = "";
